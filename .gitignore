@@ -1,0 +1,59 @@
+# PyCharm IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Python-specific files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyz
+*.pyw
+*.egg-info/
+*.egg
+*.so
+*.pth
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Local configuration
+.env
+*.local
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# Build and distribution directories
+build/
+dist/
+*.egg-info/
+
+# OS-specific files (Fedora/Linux)
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# PyCharm workspace settings
+.idea/workspace.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/misc.xml
+.idea/inspectionProfiles/
+.idea/runConfigurations/
+
+# PyCharm data sources
+.idea/dataSources/
+.idea/dataSources.local.xml
+
+# PyCharm SQLite drivers
+.idea/sqlDataSources.xml
