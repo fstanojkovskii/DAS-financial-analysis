@@ -1,8 +1,12 @@
+import json
+
 import requests
 import csv
 import os
 import argparse
 import time
+from dotenv import *
+from kafka import KafkaProducer
 
 
 def fetch_daily_data(symbol, api_key):
@@ -20,49 +24,76 @@ def fetch_daily_data(symbol, api_key):
         response.raise_for_status()
         data = response.json()
 
-        # Check if we got valid data
         if "Time Series (Daily)" not in data:
             print(f"Error in response: {data.get('Note', 'Unknown error')}")
             return None
 
-        return data["Time Series (Daily)"]  # Return only the time series data
+        return data["Time Series (Daily)"]
 
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {str(e)}")
         return None
 
 
+def read_codes(csv_path, test = 3):
+    codes = []
+    with open(csv_path) as csv_file:
+        reader = csv.reader(csv_file)
+        next(reader)
+        for row in reader:
+            if row and len(codes) < test:
+                codes.append(row[0].strip())
+
+    return codes
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Fetch stock data')
-    parser.add_argument('symbol', type=str, help='IBM')
-    parser.add_argument('--api-key', type=str, required=True, help='API')
-    args = parser.parse_args()
+    load_dotenv()
+    api_key = os.getenv("AlphaFree")
 
-    print(f"Fetching data for {args.symbol}...")
-    data = fetch_daily_data(args.symbol, args.api_key)
+    producer = KafkaProducer(
+        bootstrap_servers=["localhost:9092"],
+        value_serializer=lambda m: json.dumps(m).encode("utf-8"),
+    )
 
-    if data:
-        filename = f"{args.symbol}_daily.csv"
-        os.makedirs("data", exist_ok=True)
+    csv_path = "/home/fstanojkovski/Projects/DAS-financial-analysis/services/data-ingestion/src/data/codes.csv"
+    codes = read_codes(csv_path)
 
-        with open(f"data/{filename}", "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Date", "Open", "High", "Low", "Close", "Volume"])
 
-            for date, values in sorted(data.items()):
-                writer.writerow([
-                    date,
-                    values["1. open"],
-                    values["2. high"],
-                    values["3. low"],
-                    values["4. close"],
-                    values["5. volume"]
-                ])
+    # parser = argparse.ArgumentParser(description='Fetch stock data')
+    # parser.add_argument('symbol', type=str, help='IBM')
+    # args = parser.parse_args()
+    # Test za 1 variable
 
-        print(f"Saved {len(data)} records to data/{filename}")
+    for code in codes:
+        print(f"Code: {code}")
+        data = fetch_daily_data(codes, api_key)
+
+        count = 0
+        for date, values in data.items():
+            message = {
+                'symbol': code,
+                'date': date,
+                'open': float(values['1. open']),
+                'high': float(values['2. high']),
+                'low': float(values['3. low']),
+                'close': float(values['4. close']),
+                'volume': int(values['5. volume'])
+            }
+
+            producer.send('raw-data', message)
+            count += 1
+
+        print(f"Sent {count} daily records for {code}")
+
+        time.sleep(15)  # 15 seconds between symbols
+
+    producer.flush()
+    producer.close()
+    print("\nData ingestion completed successfully")
 
 
 if __name__ == "__main__":
     start_time = time.time()
     main()
-    print(f"Execution time: {time.time() - start_time:.2f}s")
+    print(f"Total execution time: {time.time() - start_time:.2f} seconds")
