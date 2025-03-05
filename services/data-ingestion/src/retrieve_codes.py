@@ -34,7 +34,8 @@ def fetch_top_companies(api_key):
             "Banks - Diversified",
             "Financial - Data & Stock Exchanges",
             "Drug Manufacturers - General",
-            "Healthcare"
+            "Healthcare",
+            "Asset Management - Income"
         }
         indexes = {
             "index", "vanguard", "fund", "etf", "etn", "idx", "trust",
@@ -69,25 +70,25 @@ def main():
 
     if companies:
         os.makedirs("data", exist_ok=True)
-        filename = "data/top_100_companies.csv"
+        filename = "data/codes.csv"
 
         with open(filename, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
                 "Symbol",
-                "Company Name",
-                "Market Cap",
-                "Sector",
-                "Industry",
+                # "Company Name",
+                # "Market Cap",
+                # "Sector",
+                # "Industry",
             ])
 
             for company in companies:
                 writer.writerow([
                     company.get("symbol"),
-                    company.get("companyName"),
-                    company.get("marketCap"),
-                    company.get("sector"),
-                    company.get("industry"),
+                    # company.get("companyName"),
+                    # company.get("marketCap"),
+                    # company.get("sector"),
+                    # company.get("industry"),
                 ])
 
         print(f"Successfully saved {len(companies)} companies")
