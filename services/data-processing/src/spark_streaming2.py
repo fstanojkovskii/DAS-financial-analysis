@@ -1,9 +1,10 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json, expr
+from pyspark.sql.functions import col, from_json
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType
+from kafka import KafkaProducer
+import json
 
-# Valjda nema da ni treba ovoj posle, deka run on pychamr sg
-
+# Сетирање на Spark сесија
 spark = SparkSession.builder \
     .appName("PyCharmSparkStreaming") \
     .config("spark.jars.packages",
@@ -15,17 +16,19 @@ spark = SparkSession.builder \
 
 spark.sparkContext.setLogLevel("WARN")
 
+# Дефинирање на шема за податоците
 schema = StructType([
     StructField("symbol", StringType()),
     StructField("date", StringType()),
     StructField("open", DoubleType()),
-    StructField("price_change", DoubleType()),#add price_change
+    StructField("price_change", DoubleType()),  # Додавање на price_change
     StructField("high", DoubleType()),
     StructField("low", DoubleType()),
     StructField("close", DoubleType()),
     StructField("volume", IntegerType())
 ])
 
+# Читање на податоците од Kafka
 kafka_df = spark.readStream \
     .format("kafka") \
     .option("kafka.bootstrap.servers", "localhost:9092") \
@@ -33,22 +36,36 @@ kafka_df = spark.readStream \
     .option("startingOffsets", "earliest") \
     .load()
 
+# Обработка на податоците: пресметка на price_change
 processed_df = kafka_df.selectExpr("CAST(value AS STRING)") \
     .select(from_json(col("value"), schema).alias("data")) \
     .select("data.*") \
     .withColumn("price_change", col("close") - col("open"))
 
+# Kafka Producer за испраќање на податоците до третотот сервис
+producer = KafkaProducer(
+    bootstrap_servers=["localhost:9092"],
+    value_serializer=lambda m: json.dumps(m).encode("utf-8")
+)
 
-def write_to_db(batch_df, batch_id):
-    (batch_df.write
-     .format("org.apache.spark.sql.cassandra")
-     .mode("append")
-     .options(table="stock_prices", keyspace="financial_data") #stock_prices
-     .save())
+def write_to_kafka(batch_df, batch_id):
+    # topic'processed-data'
+    for row in batch_df.collect():
+        message = {
+            'symbol': row['symbol'],
+            'date': row['date'],
+            'open': row['open'],
+            'high': row['high'],
+            'low': row['low'],
+            'close': row['close'],
+            'volume': row['volume'],
+            'price_change': row['price_change']
+        }
+        producer.send('processed-data', message)
 
 
 query = processed_df.writeStream \
-    .foreachBatch(write_to_db) \
+    .foreachBatch(write_to_kafka) \
     .outputMode("update") \
     .option("checkpointLocation", "/tmp/spark-checkpoints") \
     .start()

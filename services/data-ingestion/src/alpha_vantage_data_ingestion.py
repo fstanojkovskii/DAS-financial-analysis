@@ -56,11 +56,12 @@ def main():
         value_serializer=lambda m: json.dumps(m).encode("utf-8"),
     )
 
-    csv_path = "/home/fstanojkovski/Projects/DAS-financial-analysis/services/data-ingestion/src/data/codes.csv"
+    csv_path = r"C:\Users\Andreja\Desktop\Das_Financial_analisys\DAS-financial-analysis\services\data-ingestion\src\data\codes.csv" #Menuvaj!!
     codes = read_codes(csv_path)
 
 
-    # parser = argparse.ArgumentParser(description='Fetch stock data')
+
+# parser = argparse.ArgumentParser(description='Fetch stock data')
     # parser.add_argument('symbol', type=str, help='IBM')
     # args = parser.parse_args()
     # Test za 1 variable
