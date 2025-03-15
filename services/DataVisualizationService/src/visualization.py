@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, jsonify
 from cassandra.cluster import Cluster
 from datetime import datetime, timedelta
 import cassandra.util
@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from io import BytesIO
 import base64
-
+from  flask_cors import CORS
 app = Flask(__name__)
-
+CORS(app)
 #Data од Cassandra
 def get_data_from_cassandra(session, symbol, time_frame=None):
     query = "SELECT * FROM analysis_data WHERE symbol = %s"
@@ -72,15 +72,15 @@ def create_plot(symbol, data):
     plt.tight_layout()
 
     img = BytesIO()
-    plt.savefig(img, format='png')
+    plt.savefig(img, format='png', dpi=100)
     img.seek(0)
     img_base64 = base64.b64encode(img.getvalue()).decode('utf-8')
 
     return img_base64
 
 
-@app.route('/forecast')
-def forecast():
+@app.route('/api/forecast', strict_slashes=False)
+def forecast_api():
     symbol = request.args.get('symbol', default='AAPL', type=str)
     time_frame = request.args.get('time_frame', default='7d', type=str)
 
@@ -90,28 +90,22 @@ def forecast():
     data = get_data_from_cassandra(session, symbol, time_frame)
     img_base64 = create_plot(symbol, data)
 
-    return render_template_string("""
-        <html>
-            <head>
-                <title>Forecast Graph</title>
-            </head>
-            <body>
-                <h1>Forecast Graph for {{ symbol }}</h1>
-                <form method="get" action="/forecast">
-                    Symbol: <input type="text" name="symbol" value="{{ symbol }}">
-                    Time Frame:
-                    <select name="time_frame">
-                        <option value="7d" {% if time_frame == '7d' %}selected{% endif %}>Last 7 Days</option>
-                        <option value="1m" {% if time_frame == '1m' %}selected{% endif %}>Last 1 Month</option>
-                        <option value="1y" {% if time_frame == '1y' %}selected{% endif %}>Last 1 Year</option>
-                    </select>
-                    <input type="submit" value="Generate Graph">
-                </form>
-                <h2>Graph:</h2>
-                <img src="data:image/png;base64,{{ img_base64 }}" alt="Forecast Graph"/>
-            </body>
-        </html>
-    """, symbol=symbol, time_frame=time_frame, img_base64=img_base64)
+    return jsonify({
+        "symbol": symbol,
+        "time_frame": time_frame,
+        "img_base64": img_base64
+    })
+@app.route('/api/symbols', methods=['GET'])
+def get_symbols():
+    cluster = Cluster(['127.0.0.1'])
+    session = cluster.connect('financial_data')
+
+    query = "SELECT DISTINCT symbol FROM analysis_data"
+    rows = session.execute(query)
+
+    symbols = [row.symbol for row in rows]
+
+    return jsonify({"symbols": symbols})
 
 if __name__ == '__main__':
     app.run(debug=True)
