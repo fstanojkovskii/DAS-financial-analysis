@@ -1,13 +1,10 @@
 import json
-
 import requests
 import csv
 import os
-import argparse
 import time
-from dotenv import *
+from dotenv import load_dotenv
 from kafka import KafkaProducer
-
 
 def fetch_daily_data(symbol, api_key):
     url = "https://www.alphavantage.co/query"
@@ -25,15 +22,14 @@ def fetch_daily_data(symbol, api_key):
         data = response.json()
 
         if "Time Series (Daily)" not in data:
-            print(f"Error in response: {data.get('Note', 'Unknown error')}")
+            print(f"Error in response for {symbol}: {data.get('Note', 'Unknown error')}")
             return None
 
         return data["Time Series (Daily)"]
 
     except requests.exceptions.RequestException as e:
-        print(f"Request failed: {str(e)}")
+        print(f"Request failed for {symbol}: {str(e)}")
         return None
-
 
 def read_codes(csv_path, test = 3):
     codes = []
@@ -41,11 +37,9 @@ def read_codes(csv_path, test = 3):
         reader = csv.reader(csv_file)
         next(reader)
         for row in reader:
-            if row and len(codes) < test:
+            if row:
                 codes.append(row[0].strip())
-
     return codes
-
 
 def main():
     load_dotenv()
@@ -56,19 +50,15 @@ def main():
         value_serializer=lambda m: json.dumps(m).encode("utf-8"),
     )
 
-    csv_path = r"C:\Users\Andreja\Desktop\Das_Financial_analisys\DAS-financial-analysis\services\data-ingestion\src\data\codes.csv" #Menuvaj!!
+    csv_path = "C:\\Users\\Andreja\\Desktop\\Das_Financial_analisys\\DAS-financial-analysis\\services\\data-ingestion\\src\\data\\codes.csv"
     codes = read_codes(csv_path)
 
-
-
-# parser = argparse.ArgumentParser(description='Fetch stock data')
-    # parser.add_argument('symbol', type=str, help='IBM')
-    # args = parser.parse_args()
-    # Test za 1 variable
-
     for code in codes:
-        print(f"Code: {code}")
-        data = fetch_daily_data(codes, api_key)
+        print(f"Fetching data for: {code}")
+        data = fetch_daily_data(code, api_key)
+
+        if not data:
+            continue
 
         count = 0
         for date, values in data.items():
@@ -81,18 +71,15 @@ def main():
                 'close': float(values['4. close']),
                 'volume': int(values['5. volume'])
             }
-
             producer.send('raw-data', message)
             count += 1
 
-        print(f"Sent {count} daily records for {code}")
-
-        time.sleep(15)  # 15 seconds between symbols
+        print(f"Sent {count} records for {code}")
+        time.sleep(15)  # 15 seconds delay to avoid API rate limits
 
     producer.flush()
     producer.close()
     print("\nData ingestion completed successfully")
-
 
 if __name__ == "__main__":
     start_time = time.time()

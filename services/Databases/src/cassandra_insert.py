@@ -1,8 +1,8 @@
 from kafka import KafkaConsumer
 import json
 from cassandra.cluster import Cluster
+from concurrent.futures import ThreadPoolExecutor
 
-# Cassandra конекција
 cluster = Cluster(['localhost'])
 session = cluster.connect()
 session.set_keyspace('financial_data')
@@ -15,15 +15,27 @@ consumer = KafkaConsumer(
     auto_offset_reset="earliest"
 )
 
-#зачувува податоци во Cassandra
-def save_to_cassandra(record):
-    session.execute("""
-        INSERT INTO stock_prices (symbol, date, open, high, low, close, volume, price_change)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """, (record["symbol"], record["date"], record["open"], record["high"],
-          record["low"], record["close"], record["volume"], record["price_change"]))
+def record_exists(symbol, date):
+    query = session.execute("""
+        SELECT COUNT(*) FROM stock_prices WHERE symbol = %s AND date = %s
+    """, (symbol, date))
+    return query.one()[0] > 0
 
-#test
-for msg in consumer:
+
+def save_to_cassandra(record):
+    if not record_exists(record["symbol"], record["date"]):
+        session.execute("""
+            INSERT INTO stock_prices (symbol, date, open, high, low, close, volume, price_change)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (record["symbol"], record["date"], record["open"], record["high"],
+              record["low"], record["close"], record["volume"], record["price_change"]))
+        print(f"✅ Data saved: {record}")
+    else:
+        print(f"⚠️ Skipping existing record: {record['symbol']} - {record['date']}")
+
+def process_message(msg):
     save_to_cassandra(msg.value)
-    print(f"✅ Data saved to Cassandra: {msg.value}")
+
+with ThreadPoolExecutor(max_workers=10) as executor:
+    for msg in consumer:
+        executor.submit(process_message, msg)
