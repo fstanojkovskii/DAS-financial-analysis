@@ -36,6 +36,6 @@ def save_to_cassandra(record):
 def process_message(msg):
     save_to_cassandra(msg.value)
 
-with ThreadPoolExecutor(max_workers=10) as executor:
+with ThreadPoolExecutor(max_workers=60) as executor:
     for msg in consumer:
         executor.submit(process_message, msg)
