@@ -1,112 +1,70 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import './Forecast.css';
-function Forecast() {
-    const [symbols, setSymbols] = useState([]);
-    const [symbol, setSymbol] = useState('');
-    const [timeFrame, setTimeFrame] = useState('7d');
-    const [imgBase64, setImgBase64] = useState('');
+import { useParams } from 'react-router-dom';
+import { fetchForecast } from '../services/api';
+import './css/Forecast.css';
+
+function ForecastPage() {
+    const { symbol } = useParams();
+    const [forecastData, setForecastData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [timeFrame, setTimeFrame] = useState('1m');
 
-    // Fetch available stock symbols from the backend
     useEffect(() => {
-        const fetchSymbols = async () => {
+        const fetchForecastData = async () => {
+            setLoading(true);
+            setError('');
             try {
-                const response = await axios.get('http://127.0.0.1:5000/api/symbols');
-                setSymbols(response.data.symbols);
-                setSymbol(response.data.symbols[0]); // Set first symbol as default
+                const data = await fetchForecast(symbol, timeFrame);
+                setForecastData(data);
             } catch (err) {
-                console.error('Error fetching symbols:', err);
-                setError('Failed to load symbols.');
+                setError('Error fetching forecast data');
+                console.error(err);
+            } finally {
+                setLoading(false);
             }
         };
 
-        fetchSymbols();
-    }, []);
+        fetchForecastData();
+    }, [symbol, timeFrame]);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-
-        try {
-            const response = await axios.get('http://127.0.0.1:5000/api/forecast', {
-                params: { symbol, time_frame: timeFrame }
-            });
-            setImgBase64(response.data.img_base64);
-        } catch (err) {
-            setError('Error fetching forecast data.');
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
+    const handleTimeFrameChange = (e) => {
+        setTimeFrame(e.target.value);
     };
 
     return (
-        <div className="forecast-container">
-            <h1 className="header">Stock Price Forecast</h1>
+        <div className="forecast-page-container">
+            <h1 className="header">{symbol} Price Forecast</h1>
 
-            <div className="form-container">
-                <form onSubmit={handleSubmit}>
-                    <div className="form-grid">
-                        <div className="form-group">
-                            <label htmlFor="symbol-select">Stock Symbol</label>
-                            <select
-                                id="symbol-select"
-                                className="select-style"
-                                value={symbol}
-                                onChange={(e) => setSymbol(e.target.value)}
-                            >
-                                {symbols.map((sym) => (
-                                    <option key={sym} value={sym}>{sym}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="timeframe-select">Time Frame</label>
-                            <select
-                                id="timeframe-select"
-                                className="select-style"
-                                value={timeFrame}
-                                onChange={(e) => setTimeFrame(e.target.value)}
-                            >
-                                <option value="7d">Last 7 Days</option>
-                                <option value="1m">Last 1 Month</option>
-                                <option value="1y">Last 1 Year</option>
-                            </select>
-                        </div>
-
-                        <div className="form-group">
-                            <button type="submit" className="button-primary">
-                                {loading ? 'Generating...' : 'Generate Forecast'}
-                            </button>
-                        </div>
-                    </div>
-                </form>
+            <div className="timeframe-selector">
+                <label htmlFor="timeframe">Select Time Frame: </label>
+                <select
+                    id="timeframe"
+                    value={timeFrame}
+                    onChange={handleTimeFrameChange}
+                >
+                    <option value="1m">Last 1 Month</option>
+                    <option value="1y">Last 1 Year</option>
+                    <option value="3y">Last 3 Years</option>
+                </select>
             </div>
 
-            {error && (
-                <div className="error-message">
-                    {error}
-                </div>
-            )}
+            {loading && <p>Loading forecast...</p>}
 
-            {loading && (
-                <div className="loading-spinner">
-                    <div className="spinner"></div>
-                    <p>Generating forecast...</p>
-                </div>
-            )}
+            {error && <p>{error}</p>}
 
-            {imgBase64 && (
-                <div className="graph-container">
-                    <h2 className="graph-title">{symbol} Price Forecast</h2>
+            {forecastData && (
+                <div className="forecast-results">
+                    <h2>Stock Information</h2>
+                    <p>Close Price: ${forecastData.price_data.close_price}</p>
+                    <p>Open Price: ${forecastData.price_data.open_price}</p>
+                    <p>Price Change: {forecastData.price_data.price_change}%</p>
+
+                    <h2>Forecast</h2>
                     <img
-                        src={`data:image/png;base64,${imgBase64}`}
-                        alt="Forecast Graph"
-                        className="graph-image"
+                        src={`data:image/png;base64,${forecastData.img_base64}`}
+                        alt="Stock Forecast"
+                        className="forecast-image"
                     />
                 </div>
             )}
@@ -114,4 +72,4 @@ function Forecast() {
     );
 }
 
-export default Forecast;
+export default ForecastPage;

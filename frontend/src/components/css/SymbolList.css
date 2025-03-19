@@ -1,0 +1,41 @@
+.symbol-list-container {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.symbol-list-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.symbol-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.symbol-item {
+    margin: 10px 0;
+}
+
+.symbol-link {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    padding: 8px 15px;
+    border-radius: 5px;
+    background-color: #f1f1f1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.symbol-link:hover {
+    color: #fff;
+    background-color: #007bff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}

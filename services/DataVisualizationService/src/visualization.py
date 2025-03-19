@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, jsonify
+from flask import Flask, request, jsonify
 from cassandra.cluster import Cluster
 from datetime import datetime, timedelta
 import cassandra.util
@@ -11,12 +11,12 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Data од Cassandra
+# Fetch forecast data from Cassandra
 def get_data_from_cassandra(session, symbol, time_frame=None):
     query = "SELECT * FROM analysis_data WHERE symbol = %s"
     rows = session.execute(query, [symbol])
 
-    data = []
+    forecast_data = []
     for row in rows:
         date = row.date
         if isinstance(date, cassandra.util.Date):
@@ -27,12 +27,13 @@ def get_data_from_cassandra(session, symbol, time_frame=None):
 
         if time_frame:
             current_date = datetime.now()
-            if time_frame == '7d' and current_date - date > timedelta(days=7):
-                continue
-            elif time_frame == '1m' and current_date - date > timedelta(days=30):
+            if time_frame == '1m' and current_date - date > timedelta(days=30):
                 continue
             elif time_frame == '1y' and current_date - date > timedelta(days=365):
                 continue
+            elif time_frame == '3y' and current_date - date > timedelta(days=365*3):  # Handle 3 years case
+                continue
+
 
         linear_regression_predictions = row.linear_regression_predictions
         rf_forecast = row.rf_forecast
@@ -41,7 +42,7 @@ def get_data_from_cassandra(session, symbol, time_frame=None):
         linear_svr_forecast = row.linear_svr_forecast
 
         for i in range(len(linear_regression_predictions)):
-            data.append({
+            forecast_data.append({
                 'date': date,
                 'linear_regression_predictions': linear_regression_predictions[i],
                 'rf_forecast': rf_forecast[i],
@@ -50,8 +51,22 @@ def get_data_from_cassandra(session, symbol, time_frame=None):
                 'linear_svr_forecast': linear_svr_forecast[i],
             })
 
-    return data
+    return forecast_data
 
+def get_symbol_price(session, symbol):
+    query = "SELECT * FROM stock_prices WHERE symbol = %s ORDER BY date DESC LIMIT 1"
+    row = session.execute(query, [symbol]).one()
+
+    if row:
+        return {
+            'symbol': symbol,
+            'close_price': row.close,
+            'price_change': row.price_change,
+            'open_price': row.open
+        }
+    return {}
+
+# Create plot
 def create_plot(symbol, data):
     df = pd.DataFrame(data)
     df['date'] = pd.to_datetime(df['date'])
@@ -77,6 +92,7 @@ def create_plot(symbol, data):
 
     return img_base64
 
+# Forecast API with symbol details
 @app.route('/api/forecast', strict_slashes=False)
 def forecast_api():
     symbol = request.args.get('symbol', default='AAPL', type=str)
@@ -85,14 +101,22 @@ def forecast_api():
     cluster = Cluster(['127.0.0.1'])
     session = cluster.connect('financial_data')
 
-    data = get_data_from_cassandra(session, symbol, time_frame)
-    img_base64 = create_plot(symbol, data)
+
+    forecast_data = get_data_from_cassandra(session, symbol, time_frame)
+
+
+    price_data = get_symbol_price(session, symbol)
+
+    img_base64 = create_plot(symbol, forecast_data)
 
     return jsonify({
         "symbol": symbol,
         "time_frame": time_frame,
+        "forecast_data": forecast_data,
+        "price_data": price_data,
         "img_base64": img_base64
     })
+
 
 @app.route('/api/symbols', methods=['GET'])
 def get_symbols():

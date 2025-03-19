@@ -1,14 +1,18 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import Forecast from "./components/Forecast";
+import { Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Home from "./pages/Home";
+import Symbols from "./pages/Symbols";
+import Forecast from "./pages/ForecastPage";
 
-
-    function App() {
-        return (
-            <div className="App">
-                <Forecast />
-            </div>
-        );
-    }
-
-export default App;
+export default function App() {
+    return (
+        <div>
+            <Navbar />
+            <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/symbols" element={<Symbols />} />
+                <Route path="/forecast/:symbol" element={<Forecast />} />
+            </Routes>
+        </div>
+    );
+}
