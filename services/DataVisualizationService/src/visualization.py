@@ -11,7 +11,6 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Fetch forecast data from Cassandra
 def get_data_from_cassandra(session, symbol, time_frame=None):
     query = "SELECT * FROM analysis_data WHERE symbol = %s"
     rows = session.execute(query, [symbol])
@@ -31,25 +30,16 @@ def get_data_from_cassandra(session, symbol, time_frame=None):
                 continue
             elif time_frame == '1y' and current_date - date > timedelta(days=365):
                 continue
-            elif time_frame == '3y' and current_date - date > timedelta(days=365*3):  # Handle 3 years case
+            elif time_frame == '3y' and current_date - date > timedelta(days=365 * 3):
                 continue
 
-
-        linear_regression_predictions = row.linear_regression_predictions
-        rf_forecast = row.rf_forecast
-        svm_forecast = row.svm_forecast
-        dt_forecast = row.dt_forecast
-        linear_svr_forecast = row.linear_svr_forecast
-
-        for i in range(len(linear_regression_predictions)):
-            forecast_data.append({
-                'date': date,
-                'linear_regression_predictions': linear_regression_predictions[i],
-                'rf_forecast': rf_forecast[i],
-                'svm_forecast': svm_forecast[i],
-                'dt_forecast': dt_forecast[i],
-                'linear_svr_forecast': linear_svr_forecast[i],
-            })
+        forecast_data.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'linear_regression_predictions': row.linear_regression_predictions[:10],
+            'rf_forecast': row.rf_forecast[:10],
+            'svm_forecast': row.svm_forecast[:10],
+            'dt_forecast': row.dt_forecast[:10]
+        })
 
     return forecast_data
 
@@ -60,23 +50,34 @@ def get_symbol_price(session, symbol):
     if row:
         return {
             'symbol': symbol,
-            'close_price': row.close,
-            'price_change': row.price_change,
-            'open_price': row.open
+            'close_price': row.close if row.close else 'N/A',
+            'price_change': row.price_change if row.price_change else 'N/A',
+            'open_price': row.open if row.open else 'N/A'
         }
     return {}
 
-# Create plot
 def create_plot(symbol, data):
+    if not data:
+        return None
+
     df = pd.DataFrame(data)
     df['date'] = pd.to_datetime(df['date'])
+
+
+    numeric_cols = ['linear_regression_predictions', 'rf_forecast', 'svm_forecast', 'dt_forecast']
+    for col in numeric_cols:
+        df[col] = df[col].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else None).astype(float)
+
+    df = df.dropna()
+
+    if df.empty:
+        return None
 
     plt.figure(figsize=(10, 6))
     plt.plot(df['date'], df['linear_regression_predictions'], label='Linear Regression', color='blue')
     plt.plot(df['date'], df['rf_forecast'], label='Random Forest', color='red')
     plt.plot(df['date'], df['svm_forecast'], label='SVM', color='green')
     plt.plot(df['date'], df['dt_forecast'], label='Decision Tree', color='purple')
-    plt.plot(df['date'], df['linear_svr_forecast'], label='Linear SVR', color='orange')
 
     plt.xlabel('Date')
     plt.ylabel('Forecast Values')
@@ -92,22 +93,18 @@ def create_plot(symbol, data):
 
     return img_base64
 
-# Forecast API with symbol details
 @app.route('/api/forecast', strict_slashes=False)
 def forecast_api():
     symbol = request.args.get('symbol', default='AAPL', type=str)
-    time_frame = request.args.get('time_frame', default='7d', type=str)
+    time_frame = request.args.get('time_frame', default='1m', type=str)
 
     cluster = Cluster(['127.0.0.1'])
     session = cluster.connect('financial_data')
 
-
     forecast_data = get_data_from_cassandra(session, symbol, time_frame)
-
-
     price_data = get_symbol_price(session, symbol)
 
-    img_base64 = create_plot(symbol, forecast_data)
+    img_base64 = create_plot(symbol, forecast_data) if forecast_data else None
 
     return jsonify({
         "symbol": symbol,
@@ -116,7 +113,6 @@ def forecast_api():
         "price_data": price_data,
         "img_base64": img_base64
     })
-
 
 @app.route('/api/symbols', methods=['GET'])
 def get_symbols():

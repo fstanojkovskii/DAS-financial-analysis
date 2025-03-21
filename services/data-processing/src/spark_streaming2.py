@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json
+from pyspark.sql.functions import col, from_json, round
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType
 from kafka import KafkaProducer
 import json
@@ -36,11 +36,11 @@ kafka_df = spark.readStream \
     .option("startingOffsets", "earliest") \
     .load()
 
-# Обработка на податоците: пресметка на price_change
+# Обработка на податоците: пресметка на price_change со заокружување на 2 децимали
 processed_df = kafka_df.selectExpr("CAST(value AS STRING)") \
     .select(from_json(col("value"), schema).alias("data")) \
     .select("data.*") \
-    .withColumn("price_change", col("close") - col("open"))
+    .withColumn("price_change", round(col("close") - col("open"), 2))  # 🔹 Заокружување на 2 децимали
 
 # Kafka Producer за испраќање на податоците до третотот сервис
 producer = KafkaProducer(
@@ -49,7 +49,7 @@ producer = KafkaProducer(
 )
 
 def write_to_kafka(batch_df, batch_id):
-    # topic'processed-data'
+    # topic 'processed-data'
     for row in batch_df.collect():
         message = {
             'symbol': row['symbol'],
@@ -62,7 +62,6 @@ def write_to_kafka(batch_df, batch_id):
             'price_change': row['price_change']
         }
         producer.send('processed-data', message)
-
 
 query = processed_df.writeStream \
     .foreachBatch(write_to_kafka) \

@@ -21,7 +21,7 @@ def record_exists(symbol, date):
     """, (symbol, date))
     return query.one()[0] > 0
 
-
+# funkcija save to cassandra ss test
 def save_to_cassandra(record):
     if not record_exists(record["symbol"], record["date"]):
         session.execute("""

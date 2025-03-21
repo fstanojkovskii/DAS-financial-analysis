@@ -31,7 +31,7 @@ def fetch_daily_data(symbol, api_key):
         print(f"Request failed for {symbol}: {str(e)}")
         return None
 
-def read_codes(csv_path, test = 3):
+def read_codes(csv_path, limit=3):
     codes = []
     with open(csv_path) as csv_file:
         reader = csv.reader(csv_file)
@@ -39,6 +39,8 @@ def read_codes(csv_path, test = 3):
         for row in reader:
             if row:
                 codes.append(row[0].strip())
+            if len(codes) >= limit:
+                break
     return codes
 
 def main():

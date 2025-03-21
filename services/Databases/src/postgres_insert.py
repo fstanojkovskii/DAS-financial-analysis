@@ -1,12 +1,15 @@
 import json
 import psycopg2
 from kafka import KafkaConsumer
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 pg_conn = psycopg2.connect(
     dbname="financial_data",
-    user="postgres",
-    password="dimo",
+    user=os.getenv("POSTGRES_USER"),
+    password=os.getenv("POSTGRES_PASSWORD"),
     host="localhost",
     port="5432"
 )
@@ -41,7 +44,7 @@ def record_exists(symbol, date):
         SELECT 1 FROM stock_prices WHERE symbol = %s AND date = %s
     """, (symbol, date))
     return pg_cursor.fetchone() is not None
-
+# funkcija save to cassandra ss test
 def save_to_postgres(record):
     if not record_exists(record["symbol"], record["date"]):
         pg_cursor.execute("""

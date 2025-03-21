@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchForecast } from '../services/api';
+import { Line } from 'react-chartjs-2';
+import 'chart.js/auto';
 import './css/Forecast.css';
 
 function ForecastPage() {
@@ -14,11 +16,17 @@ function ForecastPage() {
         const fetchForecastData = async () => {
             setLoading(true);
             setError('');
+            setForecastData(null);
+
             try {
                 const data = await fetchForecast(symbol, timeFrame);
-                setForecastData(data);
+                if (!data || Object.keys(data).length === 0) {
+                    setError('No forecast data available.');
+                } else {
+                    setForecastData(data);
+                }
             } catch (err) {
-                setError('Error fetching forecast data');
+                setError('Error fetching forecast data.');
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -32,42 +40,41 @@ function ForecastPage() {
         setTimeFrame(e.target.value);
     };
 
+    const chartData = forecastData && {
+        labels: forecastData.forecast_data.map(d => d.date),
+        datasets: [
+            { label: 'Linear Regression', data: forecastData.forecast_data.map(d => d.linear_regression_predictions[0]), borderColor: 'blue' },
+            { label: 'Random Forest', data: forecastData.forecast_data.map(d => d.rf_forecast[0]), borderColor: 'red' },
+            { label: 'SVM', data: forecastData.forecast_data.map(d => d.svm_forecast[0]), borderColor: 'green' },
+            { label: 'Decision Tree', data: forecastData.forecast_data.map(d => d.dt_forecast[0]), borderColor: 'purple' },
+        ]
+    };
+
     return (
         <div className="forecast-page-container">
-            <h1 className="header">{symbol} Price Forecast</h1>
+            <h1>{symbol} Price Forecast</h1>
 
-            <div className="timeframe-selector">
-                <label htmlFor="timeframe">Select Time Frame: </label>
-                <select
-                    id="timeframe"
-                    value={timeFrame}
-                    onChange={handleTimeFrameChange}
-                >
-                    <option value="1m">Last 1 Month</option>
-                    <option value="1y">Last 1 Year</option>
-                    <option value="3y">Last 3 Years</option>
-                </select>
-            </div>
 
-            {loading && <p>Loading forecast...</p>}
+            <select value={timeFrame} onChange={handleTimeFrameChange}>
+                <option value="1m">Last 1 Month</option>
+                <option value="1y">Last 1 Year</option>
+                <option value="3y">Last 3 Years</option>
+            </select>
 
+            {loading && <p>Loading...</p>}
             {error && <p>{error}</p>}
 
+
             {forecastData && (
-                <div className="forecast-results">
+                <div className="stock-info">
                     <h2>Stock Information</h2>
                     <p>Close Price: ${forecastData.price_data.close_price}</p>
                     <p>Open Price: ${forecastData.price_data.open_price}</p>
                     <p>Price Change: {forecastData.price_data.price_change}%</p>
-
-                    <h2>Forecast</h2>
-                    <img
-                        src={`data:image/png;base64,${forecastData.img_base64}`}
-                        alt="Stock Forecast"
-                        className="forecast-image"
-                    />
                 </div>
             )}
+
+            {forecastData && <Line data={chartData} />}
         </div>
     );
 }
