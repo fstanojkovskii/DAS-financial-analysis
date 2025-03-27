@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - data-visualization
+      - data-analysis
+      - data-processing
+      - data-ingestion
+    networks:
+      - das-network
+
+  # Base image build
+  base:
+    build:
+      context: ./services
+      dockerfile: Dockerfile.base
+    image: das-financial-analysis-base:latest
+
+  # Data Ingestion Service
+  data-ingestion:
+    build:
+      context: ./services/data-ingestion
+      dockerfile: Dockerfile
+    depends_on:
+      - base
+    ports:
+      - "5001:5001"
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - CASSANDRA_HOST=cassandra
+      - CASSANDRA_PORT=9042
+    networks:
+      - das-network
+
+  # Data Processing Service
+  data-processing:
+    build:
+      context: ./services/data-processing
+      dockerfile: Dockerfile
+    depends_on:
+      - base
+    ports:
+      - "5002:5002"
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - CASSANDRA_HOST=cassandra
+      - CASSANDRA_PORT=9042
+    networks:
+      - das-network
+
+  # Data Analysis Service
+  data-analysis:
+    build:
+      context: ./services/data-analysis
+      dockerfile: Dockerfile
+    depends_on:
+      - base
+    ports:
+      - "5003:5003"
+    environment:
+      - CASSANDRA_HOST=cassandra
+      - CASSANDRA_PORT=9042
+    networks:
+      - das-network
+
+  # Data Visualization Service
+  data-visualization:
+    build:
+      context: ./services/data-visualization
+      dockerfile: Dockerfile
+    depends_on:
+      - base
+    ports:
+      - "5004:5004"
+    environment:
+      - CASSANDRA_HOST=cassandra
+      - CASSANDRA_PORT=9042
+    networks:
+      - das-network
+
+  # Kafka Service
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - das-network
+
+  # Zookeeper Service
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - das-network
+
+  # Cassandra Service
+  cassandra:
+    image: cassandra:latest
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    networks:
+      - das-network
+
+networks:
+  das-network:
+    driver: bridge
+
+volumes:
+  cassandra_data: 

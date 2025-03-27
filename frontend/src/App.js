@@ -2,7 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Symbols from "./pages/Symbols";
-import Forecast from "./pages/ForecastPage";
+import ForecastPage from "./pages/ForecastPage";
 
 export default function App() {
     return (
@@ -11,7 +11,7 @@ export default function App() {
             <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/symbols" element={<Symbols />} />
-                <Route path="/forecast/:symbol" element={<Forecast />} />
+                <Route path="/forecast/:symbol" element={<ForecastPage />} />
             </Routes>
         </div>
     );

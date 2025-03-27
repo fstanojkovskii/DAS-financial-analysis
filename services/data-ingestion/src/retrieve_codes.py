@@ -1,8 +1,24 @@
+from gevent import monkey
+monkey.patch_all()  # Patch standard library functions
+
 import requests
-import csv
 import os
 from dotenv import load_dotenv
+from cassandra.cluster import Cluster
+import logging
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def connect_to_cassandra():
+    try:
+        cluster = Cluster(['127.0.0.1'])
+        session = cluster.connect('financial_data')
+        return cluster, session
+    except Exception as e:
+        logger.error(f"Failed to connect to Cassandra: {e}")
+        raise
 
 def fetch_top_companies(api_key):
     url = "https://financialmodelingprep.com/api/v3/stock-screener"
@@ -59,8 +75,24 @@ def fetch_top_companies(api_key):
 
         return final_companies
     except requests.exceptions.RequestException as e:
-        print(f"API request failed: {str(e)}")
+        logger.error(f"API request failed: {str(e)}")
         return None
+
+def store_symbols_in_db(session, companies):
+    try:
+        # Prepare the insert statement
+        insert_query = "INSERT INTO symbols (symbol) VALUES (%s)"
+        
+        # Insert each symbol
+        for company in companies:
+            symbol = company.get("symbol")
+            if symbol:
+                session.execute(insert_query, (symbol,))
+        
+        logger.info(f"Successfully stored {len(companies)} symbols in the database")
+    except Exception as e:
+        logger.error(f"Failed to store symbols in database: {e}")
+        raise
 
 def main():
     load_dotenv()
@@ -69,29 +101,14 @@ def main():
     companies = fetch_top_companies(api_key)
 
     if companies:
-        os.makedirs("data", exist_ok=True)
-        filename = "data/codes.csv"
-
-        with open(filename, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                "Symbol",
-                # "Company Name",
-                # "Market Cap",
-                # "Sector",
-                # "Industry",
-            ])
-
-            for company in companies:
-                writer.writerow([
-                    company.get("symbol"),
-                    # company.get("companyName"),
-                    # company.get("marketCap"),
-                    # company.get("sector"),
-                    # company.get("industry"),
-                ])
-
-        print(f"Successfully saved {len(companies)} companies")
+        try:
+            cluster, session = connect_to_cassandra()
+            store_symbols_in_db(session, companies)
+            cluster.shutdown()
+        except Exception as e:
+            logger.error(f"Database operation failed: {e}")
+    else:
+        logger.error("No companies data to store")
 
 
 if __name__ == "__main__":

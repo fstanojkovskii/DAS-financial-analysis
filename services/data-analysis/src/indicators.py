@@ -1,10 +1,13 @@
+import gevent.monkey
+gevent.monkey.patch_all()
+
 import pandas as pd
 from cassandra.cluster import Cluster
 from concurrent.futures import ThreadPoolExecutor
 
 
 def connect_to_cassandra():
-    cluster = Cluster(['localhost'])
+    cluster = Cluster(['localhost'], protocol_version=4)
     session = cluster.connect('financial_data')
     return cluster, session
 
@@ -16,8 +19,8 @@ def check_existing_indicators(session, symbol, date):
 
 def fetch_historical_data(session, symbol, date):
     query = """
-        SELECT date, close FROM stock_prices 
-        WHERE symbol = %s AND date < %s 
+        SELECT date, close FROM stock_prices
+        WHERE symbol = %s AND date < %s
         ORDER BY date DESC LIMIT 10;
     """
     rows = session.execute(query, (symbol, date))
@@ -58,7 +61,7 @@ def process_record(session, record):
 
 def main():
     cluster, session = connect_to_cassandra()
-    query = "SELECT symbol, date FROM stock_prices"  # Отстранет DISTINCT
+    query = "SELECT symbol, date FROM stock_prices"
     rows = session.execute(query)
 
     with ThreadPoolExecutor(max_workers=50) as executor:
