@@ -42,6 +42,7 @@ services:
     depends_on:
       - cassandra
       - kafka
+      - base
     networks:
       - das-network
 
@@ -58,6 +59,7 @@ services:
     depends_on:
       - cassandra
       - kafka
+      - base
     networks:
       - das-network
 
@@ -72,6 +74,7 @@ services:
       - CASSANDRA_HOST=cassandra
     depends_on:
       - cassandra
+      - base
     networks:
       - das-network
 
@@ -86,6 +89,7 @@ services:
       - CASSANDRA_HOST=cassandra
     depends_on:
       - cassandra
+      - base
     networks:
       - das-network
 
@@ -124,6 +128,7 @@ services:
       - "9042:9042"
     volumes:
       - cassandra_data:/var/lib/cassandra
+      - ./services/cassandra/init:/docker-entrypoint-initdb.d
     environment:
       - CASSANDRA_USER=cassandra
       - CASSANDRA_PASSWORD=cassandra
