@@ -20,6 +20,7 @@ __pycache__/
 venv/
 env/
 .venv/
+.venv1
 
 # Local configuration
 .env
