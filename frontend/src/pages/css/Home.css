@@ -1,0 +1,52 @@
+.home-container {
+    padding: 40px;
+    text-align: center;
+    background-color: #f7f7f7;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.home-title {
+    font-size: 36px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.home-description {
+    font-size: 18px;
+    color: #555;
+    margin-bottom: 30px;
+}
+
+.cta-container {
+    margin-top: 20px;
+}
+
+.cta-text {
+    font-size: 20px;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.cta-button {
+    background-color: #007bff;
+    padding: 12px 25px;
+    font-size: 18px;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.cta-button:hover {
+    background-color: #0056b3;
+}
+
+.cta-link {
+    text-decoration: none;
+    color: white;
+}
